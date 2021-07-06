@@ -20,3 +20,11 @@ librb = library(
 pkg = import('pkgconfig')
 pkg.generate(librb)
 
+librb_test = executable(
+  'librb_test', 
+  'test/main.c', 
+  link_with: [librb],
+  include_directories: include_directories
+)
+
+test('unit test', librb_test)
