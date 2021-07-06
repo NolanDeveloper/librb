@@ -50,4 +50,12 @@ LibrbError librb_pop_back(Librb *librb, LibrbRingBuffer *ring_buffer, char *byte
 // Precondition: !size || bytes
 LibrbError librb_pop_front(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size);
 
+// Read bytes from the end of the ring buffer without removing.
+// Precondition: !size || bytes
+LibrbError librb_peek_back(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size);
+
+// Read bytes from the beginning of the ring buffer without removing.
+// Precondition: !size || bytes
+LibrbError librb_peek_front(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size);
+
 #endif
