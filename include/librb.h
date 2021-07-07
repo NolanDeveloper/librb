@@ -43,12 +43,10 @@ LibrbError librb_push_back(Librb *librb, LibrbRingBuffer *ring_buffer, const cha
 LibrbError librb_push_front(Librb *librb, LibrbRingBuffer *ring_buffer, const char *bytes, size_t size);
 
 // Remove bytes from the end of the ring buffer.
-// Precondition: !size || bytes
-LibrbError librb_pop_back(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size);
+LibrbError librb_pop_back(Librb *librb, LibrbRingBuffer *ring_buffer, size_t size);
 
 // Remove bytes from the beginning of the ring buffer.
-// Precondition: !size || bytes
-LibrbError librb_pop_front(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size);
+LibrbError librb_pop_front(Librb *librb, LibrbRingBuffer *ring_buffer, size_t size);
 
 // Read bytes from the end of the ring buffer without removing.
 // Precondition: !size || bytes
@@ -57,5 +55,9 @@ LibrbError librb_peek_back(Librb *librb, LibrbRingBuffer *ring_buffer, char *byt
 // Read bytes from the beginning of the ring buffer without removing.
 // Precondition: !size || bytes
 LibrbError librb_peek_front(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size);
+
+// Read bytes from the ring buffer at specified offset.
+// Precondition: !size || bytes
+LibrbError librb_peek_at(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size, size_t offset);
 
 #endif

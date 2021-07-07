@@ -10,20 +10,20 @@ struct Librb_ {
 // Ring buffer is empty <=> begin == end
 // Ring buffer is full <=> (end + 1) % size == begin
 // 
-// There two ways of data layout:
+// Two cases may happen during work with ring buffer:
 //
-// Continuous (begin <= end):
+// Continuous data layout (begin <= end):
 //   0              begin                       end                 size
 //   |               |                           |                   |
 // |---|---|---|---|+++|+++|+++|+++|+++|+++|+++|---|---|---|---|---|
 //
-// In two parts (end < begin):
+// Data lays in two separate parts (end < begin):
 //   0          end                 begin                           size 
 //   |           |                   |                               |
 // |+++|+++|+++|---|---|---|---|---|+++|+++|+++|+++|+++|+++|+++|+++|  
 struct LibrbRingBuffer_ {
     char *buffer;
-    size_t size;
+    size_t size; // size of buffer
     size_t begin; // index of the first byte
     size_t end; // index of the first after last byte
 };
@@ -153,17 +153,8 @@ end:
     return err;
 }
 
-// Helper memcpy-like function that's somewhat equievalent to 
-//
-// > if (is_reading) {
-// >     memcpy(ring_buffer->buffer + begin, bytes, size);
-// > } else {
-// >     memcpy(bytes, ring_buffer->buffer + begin, size);
-// > }
-//
-// begin -- index of the first byte where to place copy
-// bytes -- buffer with data to copy from
-// size -- number of bytes to copy
+// Copy {size} bytes from (or to dependeing on {is_reading}) {ring_buffer} starting 
+// at index {begin} into (from) {bytes}.
 static LibrbError ring_buffer_memcpy(
         Librb *librb, LibrbRingBuffer *ring_buffer, bool is_reading, size_t begin, char *bytes, size_t size) {
     LibrbError err = LIBRB_ERROR_OK;
@@ -243,14 +234,19 @@ end:
     return err;
 }
 
-LibrbError librb_pop_back(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size) {
+LibrbError librb_pop_back(Librb *librb, LibrbRingBuffer *ring_buffer, size_t size) {
     LibrbError err = LIBRB_ERROR_OK;
-    if (!librb || !ring_buffer || (!size && !bytes)) {
+    if (!librb || !ring_buffer) {
         err = LIBRB_ERROR_BAD_ARGUMENT;
         goto end;
     }
-    err = E(librb_peek_back(librb, ring_buffer, bytes, size));
+    size_t occupancy;
+    err = E(librb_get_occupancy(librb, ring_buffer, &occupancy));
     if (err) goto end;
+    if (occupancy < size) {
+        err = LIBRB_ERROR_UNDERFLOW;
+        goto end;
+    }
     size_t begin = ring_buffer->end + ring_buffer->size - size;
     if (ring_buffer->size <= begin) {
         begin -= ring_buffer->size;
@@ -260,14 +256,19 @@ end:
     return err;
 }
 
-LibrbError librb_pop_front(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size) {
+LibrbError librb_pop_front(Librb *librb, LibrbRingBuffer *ring_buffer, size_t size) {
     LibrbError err = LIBRB_ERROR_OK;
-    if (!librb || !ring_buffer || (!size && !bytes)) {
+    if (!librb || !ring_buffer) {
         err = LIBRB_ERROR_BAD_ARGUMENT;
         goto end;
     }
-    err = E(librb_peek_front(librb, ring_buffer, bytes, size));
+    size_t occupancy;
+    err = E(librb_get_occupancy(librb, ring_buffer, &occupancy));
     if (err) goto end;
+    if (occupancy < size) {
+        err = LIBRB_ERROR_UNDERFLOW;
+        goto end;
+    }
     ring_buffer->begin += size;
     if (ring_buffer->size <= ring_buffer->begin) {
         ring_buffer->begin -= ring_buffer->size;
@@ -289,11 +290,7 @@ LibrbError librb_peek_back(Librb *librb, LibrbRingBuffer *ring_buffer, char *byt
         err = LIBRB_ERROR_UNDERFLOW;
         goto end;
     }
-    size_t begin = ring_buffer->end + ring_buffer->size - size;
-    if (ring_buffer->size <= begin) {
-        begin -= ring_buffer->size;
-    }
-    err = E(ring_buffer_memcpy(librb, ring_buffer, true, begin, bytes, size));
+    err = E(librb_peek_at(librb, ring_buffer, bytes, size, occupancy - size));
     if (err) goto end;
 end:
     return err;
@@ -310,12 +307,28 @@ LibrbError librb_peek_front(Librb *librb, LibrbRingBuffer *ring_buffer, char *by
     if (err) goto end;
     if (occupancy < size) {
         err = LIBRB_ERROR_UNDERFLOW;
-        goto end;
     }
-    err = E(ring_buffer_memcpy(librb, ring_buffer, true, ring_buffer->begin, bytes, size));
+    err = E(librb_peek_at(librb, ring_buffer, bytes, size, 0));
     if (err) goto end;
 end:
     return err;
 }
 
-
+LibrbError librb_peek_at(Librb *librb, LibrbRingBuffer *ring_buffer, char *bytes, size_t size, size_t offset) {
+    LibrbError err = LIBRB_ERROR_OK;
+    if (!librb || !ring_buffer || (!size && !bytes)) {
+        err = LIBRB_ERROR_BAD_ARGUMENT;
+        goto end;
+    }
+    size_t occupancy;
+    err = E(librb_get_occupancy(librb, ring_buffer, &occupancy));
+    if (err) goto end;
+    if (occupancy < size) {
+        err = LIBRB_ERROR_UNDERFLOW;
+    }
+    size_t begin = (ring_buffer->begin + offset) % ring_buffer->size;
+    err = E(ring_buffer_memcpy(librb, ring_buffer, true, begin, bytes, size));
+    if (err) goto end;
+end:
+    return err;
+}
