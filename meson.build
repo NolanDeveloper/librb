@@ -17,6 +17,11 @@ librb = library(
   include_directories: include_directories
 )
 
+librb_dep = declare_dependency(
+  include_directories: include_directories,
+  link_with: librb
+)
+
 pkg = import('pkgconfig')
 pkg.generate(librb)
 
